@@ -2,7 +2,13 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include<algorithm>
+#include <cctype>
 using namespace std;
+// prototypes
+vector<string> readFileToStrings(string path);
+void saveTofile(string path, string text);
+
 string CeaserCipherEncrypt(string text, int s)
 {
     string result = "";
@@ -22,6 +28,48 @@ string CeaserCipherEncrypt(string text, int s)
     }
 
     return result;
+}
+
+string PlayFairCipherEncrypt(const string plainText, const string key)
+{
+    string cipher = plainText;
+    // prepare the plain text to be ciphered
+    for (size_t i = 0; i < cipher.size(); i++)
+    {
+        // Make all lower case
+        if (isupper(cipher[i]))
+        {
+            cipher[i] = tolower(plainText[i]);
+        }     
+    }
+    // remove white spaces
+    cipher.erase(remove_if( cipher.begin(), cipher.end(),::isspace), cipher.end());
+   // if two letter in couple are the same put x between them
+    for (size_t i = 0; i < cipher.size(); i++)
+    {
+        if(cipher[i]==cipher[i+1] && i%2==0)
+        {
+            cipher.insert(i+1,"x");
+        }        
+    }
+    
+    cout<<cipher<<endl;
+
+  
+    
+}
+int main()
+{
+
+    vector<string> texts = readFileToStrings("caesar_plain.txt");
+    for (size_t i = 0; i < texts.size(); i++)
+    {
+        string cipher = CeaserCipherEncrypt(texts[i], 3);
+        saveTofile("ceaser_cipher_3.txt", cipher);
+    }
+
+    PlayFairCipherEncrypt("Hrrello World","");
+    return 0;
 }
 vector<string> readFileToStrings(string path)
 {
@@ -46,7 +94,7 @@ vector<string> readFileToStrings(string path)
 void saveTofile(string path, string text)
 {
     // Create and open a text file
-    ofstream MyFile(path,ios_base::app);
+    ofstream MyFile(path, ios_base::app);
 
     // Write to the file
     if (MyFile.is_open())
@@ -55,20 +103,8 @@ void saveTofile(string path, string text)
     }
     else
     {
-        cout<<"ERROR writing to file";
+        cout << "ERROR writing to file";
     }
     // Close the file
     MyFile.close();
-}
-int main()
-{
-
-    vector<string> texts = readFileToStrings("caesar_plain.txt");
-    for (size_t i = 0; i < texts.size(); i++)
-    {
-        string cipher = CeaserCipherEncrypt(texts[i], 3);
-        saveTofile("ceaser_cipher_3.txt", cipher);
-    }
-
-    return 0;
 }
