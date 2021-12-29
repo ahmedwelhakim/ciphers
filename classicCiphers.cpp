@@ -6,6 +6,9 @@
 #include <cctype>
 using namespace std;
 
+#define REPEATING_MODE false
+#define AUTO_MODE true
+
 // Helper functions prototypes
 vector<string> readFileToStrings(string path);
 void saveTofile(string path, string text);
@@ -16,12 +19,14 @@ void prepareMatrixTable(string preparedKey, int *letterFrequencies, char matrix[
 void search(char keyT[5][5], char a, char b, int arr[]);
 int mod5(int a);
 int mod26(int a);
+void removeSpaces(string *s);
 vector<vector<int>> multiply(vector<vector<int>> m1, vector<vector<int>> m2);
 
 // Encryption prototypes
 string CeaserCipherEncrypt(const string text, const int s);
 string PlayFairCipherEncrypt(const string plainText, const string key);
 string HillCipherEncrypt(const string plain, const vector<vector<int>> key);
+string VigenerCipherEncrypt(const string plain, const string key, const bool mode);
 
 int main()
 {
@@ -96,6 +101,24 @@ int main()
             appendTofile("outputs/Hill/hill_cipher_3x3.txt", hillCipher);
         }
     }
+    // -------- 4 VIGENERE CIPHER -----------------------------------------------------------------------
+    vector<string> vigenerePlainTexts = readFileToStrings("Input Files/Vigenere/vigenere_plain.txt");
+    for (size_t i = 0; i < vigenerePlainTexts.size(); i++)
+    {
+        string vCipher_pie_repeating = VigenerCipherEncrypt(vigenerePlainTexts[i], "pie", REPEATING_MODE);
+        string vCipher_aether_auto = VigenerCipherEncrypt(vigenerePlainTexts[i], "aether", AUTO_MODE);
+
+        if (i == 0)
+        {
+            saveTofile("outputs/Vigenere/vigenere_cipher_pie_repeating.txt", vCipher_pie_repeating);
+            saveTofile("outputs/Vigenere/vigenere_cipher_aether_auto.txt", vCipher_aether_auto);
+        }
+        else
+        {
+            appendTofile("outputs/Vigenere/vigenere_cipher_pie_repeating.txt", vCipher_pie_repeating);
+            appendTofile("outputs/Vigenere/vigenere_cipher_aether_auto.txt", vCipher_aether_auto);
+        }
+    }
 
     return 0;
 }
@@ -127,8 +150,8 @@ string PlayFairCipherEncrypt(const string plainText, const string key)
     string preparedKey = key;
     // prepare the plain text to be ciphered
     toLowerCase(&result);
-    // remove white spaces
-    result.erase(remove_if(result.begin(), result.end(), ::isspace), result.end());
+    // remove spaces
+    removeSpaces(&result);
     // if two letter in couple are the same put x between them
     for (size_t i = 0; i < result.size(); i++)
     {
@@ -196,7 +219,7 @@ string HillCipherEncrypt(const string plain, const vector<vector<int>> key)
             else
             {
                 // insert x's as padding
-               t.push_back('x' - 97);
+                t.push_back('x' - 97);
             }
 
             m2.push_back(t);
@@ -214,6 +237,46 @@ string HillCipherEncrypt(const string plain, const vector<vector<int>> key)
     return cipher;
 }
 
+string VigenerCipherEncrypt(const string plain, const string key, const bool mode)
+{
+    string plainText = plain;
+    toLowerCase(&plainText);
+    removeSpaces(&plainText);
+    string keyFull = "";
+    string cipher = "";
+    if (mode == REPEATING_MODE)
+    {
+        for (size_t i = 0; i < plainText.size(); i++)
+        { // repeating the key to the length of plain text
+            keyFull += key[(i % key.size())];
+        }
+    }
+    else if (mode == AUTO_MODE)
+    {
+        for (size_t i = 0; i < plainText.size(); i++)
+        { // write the key once then complete from the plain text
+            if (i < key.size())
+            {
+                keyFull += key[i];
+            }
+            else
+            {
+                keyFull += plainText[i - key.size()];
+            }
+        }
+    }
+    for (size_t i = 0; i < plainText.size(); i++)
+    {
+        cipher += mod26((plainText[i] - 'a') + (keyFull[i] - 'a')) + 'a';
+    }
+
+    return cipher;
+}
+
+void removeSpaces(string *s)
+{
+    (*s).erase(remove_if((*s).begin(), (*s).end(), ::isspace), (*s).end());
+}
 vector<vector<int>> multiply(vector<vector<int>> m1, vector<vector<int>> m2)
 {
     vector<vector<int>> result;
