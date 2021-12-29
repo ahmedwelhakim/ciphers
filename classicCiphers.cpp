@@ -15,6 +15,7 @@ void saveTofile(string path, string text);
 void appendTofile(string path, string text);
 void search(char keyT[5][5], char a, char b, int arr[]);
 void toLowerCase(string *text);
+void toUpperCase(string *text);
 void prepareMatrixTable(string preparedKey, int *letterFrequencies, char matrix[5][5]);
 void search(char keyT[5][5], char a, char b, int arr[]);
 int mod5(int a);
@@ -27,6 +28,7 @@ string CeaserCipherEncrypt(const string text, const int s);
 string PlayFairCipherEncrypt(const string plainText, const string key);
 string HillCipherEncrypt(const string plain, const vector<vector<int>> key);
 string VigenerCipherEncrypt(const string plain, const string key, const bool mode);
+string VernamCipherEncrypt(const string plain, const string key);
 
 int main()
 {
@@ -119,7 +121,21 @@ int main()
             appendTofile("outputs/Vigenere/vigenere_cipher_aether_auto.txt", vCipher_aether_auto);
         }
     }
-
+    // -------- 5 VERNAM CIPHER -----------------------------------------------------------------------
+    vector<string> vernamPlainTexts=readFileToStrings("Input Files/Vernam/vernam_plain.txt");
+    for (size_t i = 0; i < vernamPlainTexts.size(); i++)
+    {
+        string vernam_cipher_SPARTANS=VernamCipherEncrypt(vernamPlainTexts[i],"SPARTANS");
+        if (i == 0)
+        {
+            saveTofile("outputs/Vernam/vernam_cipher_SPARTANS.txt", vernam_cipher_SPARTANS);
+        }
+        else
+        {
+            appendTofile("outputs/Vernam/vernam_cipher_SPARTANS.txt", vernam_cipher_SPARTANS);
+        }
+    }
+    
     return 0;
 }
 
@@ -214,12 +230,12 @@ string HillCipherEncrypt(const string plain, const vector<vector<int>> key)
             vector<int> t;
             if (plainText[i + j] != 0)
             {
-                t.push_back(plainText[i + j] - 97);
+                t.push_back(plainText[i + j] - 'a');
             }
             else
             {
                 // insert x's as padding
-                t.push_back('x' - 97);
+                t.push_back('x' - 'a');
             }
 
             m2.push_back(t);
@@ -231,9 +247,10 @@ string HillCipherEncrypt(const string plain, const vector<vector<int>> key)
         }
         for (size_t j = 0; j < res.size(); j++)
         {
-            cipher += (char)(res[j][0] + 97);
+            cipher += (char)(res[j][0] + 'a');
         }
     }
+    toUpperCase(&cipher);
     return cipher;
 }
 
@@ -273,6 +290,47 @@ string VigenerCipherEncrypt(const string plain, const string key, const bool mod
     return cipher;
 }
 
+string VernamCipherEncrypt(const string plain, const string key)
+{
+    // Vernam cipher one time padded implemented as in Cryptography and Network Security Sixth edition
+    // number of characters are 27 the 27th is space
+    string plainText = plain;
+    string keyModified = key;
+    string cipher = "";
+    toUpperCase(&plainText);
+    toUpperCase(&keyModified);
+    for (size_t i = 0; i < plain.size(); i++)
+    {
+        int ciph;
+        if (plainText[i] != ' ' && keyModified[i] != ' ')
+        {
+            ciph = (plainText[i] - 'A') + (keyModified[i] - 'A');
+        }
+        else if (plainText[i] == ' ' && keyModified[i] != ' ')
+        {
+            ciph = 26 + (keyModified[i] - 'A');
+        }
+        else if (plainText[i]!= ' '&& keyModified[i]==' ')
+        {
+            ciph=(plainText[i] - 'A')+26;
+        }
+        else{
+            ciph=26+26;
+        }
+        while (ciph >= 27)
+        {
+            ciph -= 27;
+        }
+
+        if(ciph==26)
+        {
+            ciph=' '-'A';
+        }                                
+        cipher += ciph + 'A';
+    }
+
+    return cipher;
+}
 void removeSpaces(string *s)
 {
     (*s).erase(remove_if((*s).begin(), (*s).end(), ::isspace), (*s).end());
@@ -310,6 +368,17 @@ void toLowerCase(string *text)
         if (isupper((*(text))[i]))
         {
             (*text)[i] = tolower((*text)[i]);
+        }
+    }
+}
+void toUpperCase(string *text)
+{
+    for (size_t i = 0; i < (*(text)).size(); i++)
+    {
+        // Make all Upper case
+        if (islower((*(text))[i]))
+        {
+            (*text)[i] = toupper((*text)[i]);
         }
     }
 }
