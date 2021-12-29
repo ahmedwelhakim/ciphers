@@ -15,10 +15,13 @@ void toLowerCase(string *text);
 void prepareMatrixTable(string preparedKey, int *letterFrequencies, char matrix[5][5]);
 void search(char keyT[5][5], char a, char b, int arr[]);
 int mod5(int a);
+int mod26(int a);
+vector<vector<int>> multiply(vector<vector<int>> m1, vector<vector<int>> m2);
 
 // Encryption prototypes
 string CeaserCipherEncrypt(const string text, const int s);
 string PlayFairCipherEncrypt(const string plainText, const string key);
+string HillCipherEncrypt(const string plain, const vector<vector<int>> key);
 
 int main()
 {
@@ -59,7 +62,39 @@ int main()
             appendTofile("outputs/PlayFair/playfair_cipher_rats.txt", cipher_rats);
             appendTofile("outputs/PlayFair/playfair_cipher_archangel.txt", cipher_archangel);
         }
-        
+    }
+    // -------- 3 HILL CIPHER -----------------------------------------------------------------------
+    vector<vector<int>> key1 = {{5, 17},
+                                {8, 3}};
+
+    vector<vector<int>> key2 = {{2, 4, 12},
+                                {9, 1, 6},
+                                {7, 5, 3}};
+    vector<string> hillPlaintexts_2x2 = readFileToStrings("Input Files/Hill/hill_plain_2x2.txt");
+    vector<string> hillPlaintexts_3x3 = readFileToStrings("Input Files/Hill/hill_plain_3x3.txt");
+    for (size_t i = 0; i < hillPlaintexts_2x2.size(); i++)
+    {
+        string hillCipher = HillCipherEncrypt(hillPlaintexts_2x2[i], key1);
+        if (i == 0)
+        {
+            saveTofile("outputs/Hill/hill_cipher_2x2.txt", hillCipher);
+        }
+        else
+        {
+            appendTofile("outputs/Hill/hill_cipher_2x2.txt", hillCipher);
+        }
+    }
+    for (size_t i = 0; i < hillPlaintexts_3x3.size(); i++)
+    {
+        string hillCipher = HillCipherEncrypt(hillPlaintexts_3x3[i], key2);
+        if (i == 0)
+        {
+            saveTofile("outputs/Hill/hill_cipher_3x3.txt", hillCipher);
+        }
+        else
+        {
+            appendTofile("outputs/Hill/hill_cipher_3x3.txt", hillCipher);
+        }
     }
 
     return 0;
@@ -142,6 +177,68 @@ string PlayFairCipherEncrypt(const string plainText, const string key)
     return result;
 }
 
+string HillCipherEncrypt(const string plain, const vector<vector<int>> key)
+{
+    string plainText = plain;
+    toLowerCase(&plainText);
+    string cipher = "";
+    for (size_t i = 0; i < plain.size(); i += key.size())
+    {
+        vector<vector<int>> m2;
+
+        for (size_t j = 0; j < key.size(); j++)
+        {
+            vector<int> t;
+            if (plainText[i + j] != 0)
+            {
+                t.push_back(plainText[i + j] - 97);
+            }
+            else
+            {
+                // insert x's as padding
+               t.push_back('x' - 97);
+            }
+
+            m2.push_back(t);
+        }
+        vector<vector<int>> res = multiply(key, m2);
+        for (size_t j = 0; j < res.size(); j++)
+        {
+            res[j][0] = mod26(res[j][0]);
+        }
+        for (size_t j = 0; j < res.size(); j++)
+        {
+            cipher += (char)(res[j][0] + 97);
+        }
+    }
+    return cipher;
+}
+
+vector<vector<int>> multiply(vector<vector<int>> m1, vector<vector<int>> m2)
+{
+    vector<vector<int>> result;
+    // initialize result array with Zeros
+    for (size_t i = 0; i < m1.size(); i++)
+    {
+        vector<int> v;
+        result.push_back(v);
+        for (size_t j = 0; j < m2[i].size(); j++)
+        {
+            result[i].push_back(0);
+        }
+    }
+    for (size_t i = 0; i < m1.size(); i++)
+    {
+        for (size_t j = 0; j < m2[i].size(); j++)
+        {
+            for (size_t k = 0; k < m1[i].size(); k++)
+            {
+                result[i][j] += m1[i][k] * m2[k][j];
+            }
+        }
+    }
+    return result;
+}
 void toLowerCase(string *text)
 {
     for (size_t i = 0; i < (*(text)).size(); i++)
@@ -246,6 +343,7 @@ void search(char keyT[5][5], char a, char b, int arr[])
     }
 }
 int mod5(int a) { return (a % 5); }
+int mod26(int a) { return (a % 26); }
 vector<string> readFileToStrings(string path)
 {
     vector<string> output;
@@ -256,12 +354,12 @@ vector<string> readFileToStrings(string path)
     { // file couldn't be opened
         cerr << "Error: file could not be opened" << endl;
     }
-    indata >> data;
 
     while (!indata.eof())
-    { // keep reading until end-of-file
-        output.push_back(data);
+    {
         indata >> data; // sets EOF flag if no value found
+        // keep reading until end-of-file
+        output.push_back(data);
     }
     indata.close();
     return output;
