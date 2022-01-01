@@ -8,7 +8,25 @@
 using namespace std;
 #define ENCRYPT true
 #define DECRYPT false
+// Helper function prototypes 
 void toUpperCase(string *text);
+string permute(string k, vector<int> arr);
+string hex2bin(string s);
+string bin2hex(string s);
+string shiftLeft(string k, int shifts, int bitsNumber);
+string shiftRight(string k, int shifts, int bitsNumber);
+string xor_string(string s1, string s2);
+bool validate(string s);
+void reenterInputs(string *plain, string *key);
+int bin2dec(string s);
+string dec2bin(int n);
+string binary4bit(string b);
+string sboxOp(string s_48);
+void round(int roundNumber, string *plainLeft_32b, string *plainRight_32b, string *permKeyLeft_28b, string *permKeyRight_28b, bool isEncrypt);
+
+// The function that Encrypt and Decrypt using DES
+string DES_Encrypt_Decrypt(string plain, string key, bool isEncrypt);
+
 const vector<int> initial_perm = {58, 50, 42, 34, 26, 18, 10, 2,
                                   60, 52, 44, 36, 28, 20, 12, 4,
                                   62, 54, 46, 38, 30, 22, 14, 6,
@@ -105,6 +123,75 @@ const vector<int> inverseInitPermutation = {40, 8, 48, 16, 56, 24, 64, 32,
                                             35, 3, 43, 11, 51, 19, 59, 27,
                                             34, 2, 42, 10, 50, 18, 58, 26,
                                             33, 1, 41, 9, 49, 17, 57, 25};
+int main()
+{
+    string pt, key;
+    int n;
+    cout << "Enter key:" << endl;
+    cin >> key;
+    cout << "Enter Plain text" << endl;
+    cin >> pt;
+    cout << "Enter number of encryprions" << endl;
+    cin >> n;
+    string enc = pt;
+    for (size_t i = 0; i < n; i++)
+    {
+        enc = DES_Encrypt_Decrypt(enc, key, ENCRYPT);
+    }
+
+    cout << "Encrypt:" << enc << endl;
+    string dec = enc;
+    for (size_t i = 0; i < n; i++)
+    {
+        dec = DES_Encrypt_Decrypt(dec, key, DECRYPT);
+    }
+
+    cout << "Decrypt:" << dec << endl;
+
+    return 0;
+}
+string DES_Encrypt_Decrypt(string plain, string key, bool isEncrypt)
+{
+DES_BEGIN:
+    bool valid = false;
+    // validate the inputs are 16 hex character
+    valid = validate(plain) && validate(key);
+    if (valid == false)
+    {
+        cout << "Incorrect inputs" << endl;
+        reenterInputs(&plain, &key);
+        goto DES_BEGIN;
+    }
+    // first permute the initial permutation to the plain text
+    string plain_64bin = permute(hex2bin(plain), initial_perm);
+    // output plain text 64 bit in binary
+
+    string pLeft_32bin = plain_64bin.substr(0, 32);   // 32-bit
+    string pRight_32bin = plain_64bin.substr(32, 64); // 32-bit
+
+    string key_64bin = hex2bin(key); // 64-bit
+
+    // permute the key to output 56-bit
+    string permKey_56bin = permute(key_64bin, permutatedChoice1);
+    string kLeft_28bin = permKey_56bin.substr(0, permKey_56bin.size() / 2);                     // 28-bit
+    string kRight_28bin = permKey_56bin.substr(permKey_56bin.size() / 2, permKey_56bin.size()); // 28-bit
+
+    // Execute the 16 round of DES
+    for (size_t i = 0; i < 16; i++)
+    {
+        round(i, &pLeft_32bin, &pRight_32bin, &kLeft_28bin, &kRight_28bin, isEncrypt);
+    }
+    // swapping left with right
+    string temp = pLeft_32bin;
+    pLeft_32bin = pRight_32bin;
+    pRight_32bin = temp;
+
+    // Inverse Initial permutaion
+    plain_64bin = pLeft_32bin + pRight_32bin;
+    plain_64bin = permute(plain_64bin, inverseInitPermutation);
+
+    return bin2hex(plain_64bin);
+}
 string permute(string k, vector<int> arr)
 {
     string per = "";
@@ -113,6 +200,58 @@ string permute(string k, vector<int> arr)
         per += k[arr[i] - 1];
     }
     return per;
+}
+string sboxOp(string s_48)
+{
+    string result_32;
+    for (size_t i = 0; i < 8; i++)
+    {
+        string row_bin = "";
+        row_bin += s_48[6 * i];
+        row_bin += s_48[6 * i + 5];
+
+        int row = bin2dec(row_bin);
+        string col_bin = "";
+        col_bin += s_48[6 * i + 1];
+        col_bin += s_48[6 * i + 2];
+        col_bin += s_48[6 * i + 3];
+        col_bin += s_48[6 * i + 4];
+        int col = bin2dec(col_bin);
+        result_32 += binary4bit(dec2bin(sbox[i][row][col]));
+    }
+    return result_32;
+}
+void round(int roundNumber, string *plainLeft_32b, string *plainRight_32b, string *permKeyLeft_28b, string *permKeyRight_28b, bool isEncrypt)
+{
+    if (isEncrypt == ENCRYPT)
+    {
+        // key is left shifted
+        (*permKeyLeft_28b) = shiftLeft((*permKeyLeft_28b), shiftTable[roundNumber], 28);
+        (*permKeyRight_28b) = shiftLeft((*permKeyRight_28b), shiftTable[roundNumber], 28);
+    }
+    else
+    {
+        // key is left shifted
+        (*permKeyLeft_28b) = shiftRight((*permKeyLeft_28b), inverseShiftTable[roundNumber], 28);
+        (*permKeyRight_28b) = shiftRight((*permKeyRight_28b), inverseShiftTable[roundNumber], 28);
+    }
+
+    string key_56 = (*permKeyLeft_28b) + (*permKeyRight_28b);
+    string key_48 = permute(key_56, permutedChoice2);
+
+    string plainRight_32b_old = *plainRight_32b;
+
+    // right plain enter to expansion table
+    string plainRight_48 = permute(*plainRight_32b, expansionPermutation);
+    plainRight_48 = xor_string(plainRight_48, key_48);
+
+    // s-box
+    (*plainRight_32b) = sboxOp(plainRight_48);
+    // permutaion P
+    (*plainRight_32b) = permute(*plainRight_32b, permutation);
+    // XOR with left side
+    *plainRight_32b = xor_string(*plainLeft_32b, *plainRight_32b);
+    *plainLeft_32b = plainRight_32b_old;
 }
 string hex2bin(string s)
 {
@@ -192,12 +331,12 @@ string shiftRight(string k, int shifts, int bitsNumber)
     string s = "";
     for (int i = 0; i < shifts; i++)
     {
-        s += k[bitsNumber-1];
-        for (int j = 0; j < bitsNumber-1; j++)
+        s += k[bitsNumber - 1];
+        for (int j = 0; j < bitsNumber - 1; j++)
         {
             s += k[j];
         }
-        
+
         k = s;
         s = "";
     }
@@ -286,102 +425,6 @@ string binary4bit(string b)
     }
     return res;
 }
-string sboxOp(string s_48)
-{
-    string result_32;
-    for (size_t i = 0; i < 8; i++)
-    {
-        string row_bin = "";
-        row_bin += s_48[6 * i];
-        row_bin += s_48[6 * i + 5];
-
-        int row = bin2dec(row_bin);
-        string col_bin = "";
-        col_bin += s_48[6 * i + 1];
-        col_bin += s_48[6 * i + 2];
-        col_bin += s_48[6 * i + 3];
-        col_bin += s_48[6 * i + 4];
-        int col = bin2dec(col_bin);
-        result_32 += binary4bit(dec2bin(sbox[i][row][col]));
-    }
-    return result_32;
-}
-void round(int roundNumber, string *plainLeft_32b, string *plainRight_32b, string *permKeyLeft_28b, string *permKeyRight_28b, bool isEncrypt)
-{
-    if (isEncrypt==ENCRYPT)
-    {
-        // key is left shifted
-        (*permKeyLeft_28b) = shiftLeft((*permKeyLeft_28b), shiftTable[roundNumber], 28);
-        (*permKeyRight_28b) = shiftLeft((*permKeyRight_28b), shiftTable[roundNumber], 28);
-    }
-    else
-    {
-        // key is left shifted
-        (*permKeyLeft_28b) = shiftRight((*permKeyLeft_28b), inverseShiftTable[roundNumber], 28);
-        (*permKeyRight_28b) = shiftRight((*permKeyRight_28b), inverseShiftTable[roundNumber], 28);
-    }
-
-    string key_56 = (*permKeyLeft_28b) + (*permKeyRight_28b);
-    string key_48 = permute(key_56, permutedChoice2);
-
-    string plainRight_32b_old = *plainRight_32b;
-
-    // right plain enter to expansion table
-    string plainRight_48 = permute(*plainRight_32b, expansionPermutation);
-    plainRight_48 = xor_string(plainRight_48, key_48);
-
-    // s-box
-    (*plainRight_32b) = sboxOp(plainRight_48);
-    // permutaion P
-    (*plainRight_32b) = permute(*plainRight_32b, permutation);
-    // XOR with left side
-    *plainRight_32b = xor_string(*plainLeft_32b, *plainRight_32b);
-    *plainLeft_32b = plainRight_32b_old;
-}
-
-string DES_Encrypt_Decrypt(string plain, string key, bool isEncrypt)
-{
-DES_BEGIN:
-    bool valid = false;
-    // validate the inputs are 16 hex character
-    valid = validate(plain) && validate(key);
-    if (valid == false)
-    {
-        cout << "Incorrect inputs" << endl;
-        reenterInputs(&plain, &key);
-        goto DES_BEGIN;
-    }
-    // first permute the initial permutation to the plain text
-    string plain_64bin = permute(hex2bin(plain), initial_perm);
-    // output plain text 64 bit in binary
-
-    string pLeft_32bin = plain_64bin.substr(0, 32);   // 32-bit
-    string pRight_32bin = plain_64bin.substr(32, 64); // 32-bit
-
-    string key_64bin = hex2bin(key); // 64-bit
-
-    // permute the key to output 56-bit
-    string permKey_56bin = permute(key_64bin, permutatedChoice1);
-    string kLeft_28bin = permKey_56bin.substr(0, permKey_56bin.size() / 2);                     // 28-bit
-    string kRight_28bin = permKey_56bin.substr(permKey_56bin.size() / 2, permKey_56bin.size()); // 28-bit
-
-    // Execute the 16 round of DES
-    for (size_t i = 0; i < 16; i++)
-    {
-        round(i, &pLeft_32bin, &pRight_32bin, &kLeft_28bin, &kRight_28bin, isEncrypt);
-    }
-    // swapping left with right
-    string temp = pLeft_32bin;
-    pLeft_32bin = pRight_32bin;
-    pRight_32bin = temp;
-
-    // Inverse Initial permutaion
-    plain_64bin = pLeft_32bin + pRight_32bin;
-    plain_64bin = permute(plain_64bin, inverseInitPermutation);
-
-    return bin2hex(plain_64bin);
-}
-
 void toUpperCase(string *text)
 {
     for (size_t i = 0; i < (*(text)).size(); i++)
@@ -392,32 +435,4 @@ void toUpperCase(string *text)
             (*text)[i] = toupper((*text)[i]);
         }
     }
-}
-int main()
-{
-    string pt, key;
-    int n;
-    cout<<"Enter key:"<<endl;
-    cin>>key;
-    cout<<"Enter Plain text"<<endl;
-    cin>>pt;
-    cout<<"Enter number of encryprions"<<endl;
-    cin>>n;
-    string enc=pt;
-    for (size_t i = 0; i < n; i++)
-    {
-        enc= DES_Encrypt_Decrypt(enc, key, ENCRYPT);
-    }
-     
-    cout << "Encrypt:" << enc << endl;
-    string dec=enc;
-    for (size_t i = 0; i < n; i++)
-    {
-        dec=DES_Encrypt_Decrypt(dec, key, DECRYPT);
-    }
-    
-
-    cout << "Decrypt:" << dec << endl;
-
-    return 0;
 }
